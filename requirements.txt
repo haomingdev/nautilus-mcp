@@ -1,0 +1,4 @@
+mcp[cli]
+nautilus_trader
+pytest
+pytest-asyncio
