@@ -87,62 +87,25 @@ def connect_venue(server_instance, venue_name: str, credentials: dict) -> dict:
 
 # --- Trading Tools Implementation ---
 
-def get_instruments(server_instance, venue: str, symbol_filter: str = None) -> dict:
-    """
-    Retrieve the list of tradable instruments for a given venue.
-
-    Args:
-        server_instance: The instance of NautilusMCPServer.
-        venue: The name of the venue (e.g., 'BINANCE').
-        symbol_filter: Optional filter to apply to instrument symbols (implementation TBD).
-
-    Returns:
-        A dictionary with status and a list of instruments (or error message).
-    """
+def get_instruments(server_instance) -> dict:
+    """Retrieve a list of available instruments from the trading node."""
     if not server_instance.initialized or not server_instance.trading_node:
-        server_instance.log_error("[GetInstruments] Error: Trading node not initialized.")
-        return {"status": "error", "message": "Trading node not initialized."}
+        server_instance.log_error("[Error] Attempted to get instruments before initialization.")
+        return {"status": "error", "message": "Trading node not initialized"}
 
     try:
-        venue_name = venue.upper()
-        server_instance.log_info(f"[GetInstruments] Retrieving instruments for venue: {venue_name}...")
+        server_instance.log_info("[API] Getting instruments...")
+        # Retrieve Instrument objects from the node
+        instruments = server_instance.trading_node.instruments()
 
-        # Check if the venue is connected/available in the trading node
-        # Nautilus might manage this implicitly or require an explicit check.
-        # For now, assume connect_venue was called.
+        # Extract the string representation of each InstrumentId
+        instrument_ids = [instrument.id.value for instrument in instruments]
 
-        # Retrieve instruments using the TradingNode's method
-        # Note: The return type and structure from Nautilus need verification.
-        # It likely returns a list of Instrument objects.
-        instruments = server_instance.trading_node.instruments(venue=venue_name)
-
-        # Convert Instrument objects to a serializable format
-        instrument_list = []
-        for inst in instruments:
-            instrument_list.append({
-                "id": str(inst.id), # e.g., "BTCUSDT.BINANCE"
-                "symbol": inst.symbol,
-                "venue": str(inst.venue),
-                "precision_price": inst.precision_price,
-                "precision_qty": inst.precision_qty,
-                "multiplier": str(inst.multiplier), # Decimal needs conversion
-                "lot_size": str(inst.lot_size), # Decimal needs conversion
-                # Add other relevant fields as needed
-            })
-
-        # Apply filtering if symbol_filter is provided (basic example)
-        if symbol_filter:
-            server_instance.log_info(f"[GetInstruments] Applying filter: {symbol_filter}")
-            filtered_list = [inst for inst in instrument_list if symbol_filter.upper() in inst["symbol"].upper()]
-        else:
-            filtered_list = instrument_list
-
-        server_instance.log_info(f"[GetInstruments] Retrieved {len(filtered_list)} instruments for {venue_name}.")
-        return {"status": "success", "instruments": filtered_list}
-
+        server_instance.log_info(f"[API] Found {len(instrument_ids)} instruments.")
+        return {"status": "success", "instruments": instrument_ids}
     except Exception as e:
-        server_instance.log_error(f"[Error][GetInstruments] Failed to retrieve instruments for {venue}: {str(e)}", exc_info=True)
-        return {"status": "error", "message": f"Failed to retrieve instruments for {venue}: {str(e)}"}
+        server_instance.log_error(f"[Error] Failed to get instruments: {str(e)}")
+        return {"status": "error", "message": f"Failed to get instruments: {str(e)}"}
 
 def submit_market_order(server_instance, params: dict) -> dict:
     """

@@ -4,7 +4,7 @@ from mcp.server import Server
 from nautilus_trader.common.component import LiveClock, Logger
 
 # Import trading tools
-from .tools.trading import initialize_trading_node, connect_venue
+from .tools.trading import initialize_trading_node, connect_venue, get_instruments
 
 # Basic logging configuration
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -64,6 +64,7 @@ class NautilusMCPServer(Server):
         self.tools = {}
         self.tools["initialize_trading_node"] = partial(initialize_trading_node, self)
         self.tools["connect_venue"] = partial(connect_venue, self)
+        self.tools["get_instruments"] = partial(get_instruments, self)  # Register the new tool
 
         self.log_info(f"[Setup] Registered {len(self.tools)} tools (metadata pending correct registration method).")
 

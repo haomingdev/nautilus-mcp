@@ -1,16 +1,10 @@
 import pytest
 from functools import partial
-
 from src.nautilus_mcp.server import NautilusMCPServer
-from src.nautilus_mcp.tools.trading import initialize_trading_node, connect_venue
-# Import necessary config classes from nautilus-trader
-from nautilus_trader.live.config import (
-    TradingNodeConfig,
-    LiveDataEngineConfig,
-    LiveRiskEngineConfig,
-    LiveExecEngineConfig,
-)
-from nautilus_trader.model.identifiers import TraderId
+from src.nautilus_mcp.tools.trading import initialize_trading_node, connect_venue, get_instruments
+from nautilus_trader.config import TradingNodeConfig, LiveDataEngineConfig, LiveRiskEngineConfig, LiveExecEngineConfig
+from nautilus_trader.model.identifiers import TraderId, InstrumentId
+from unittest.mock import AsyncMock, MagicMock, patch
 
 # --- Pytest Fixtures (Setup) ---
 
@@ -115,8 +109,44 @@ def test_connect_venue_success(mcp_server, valid_trading_config):
     assert f"connected to venue {venue_name}".lower() in connect_result["message"].lower(), "Message should indicate successful connection (case-insensitive)."
 
 
-# Add more tests here for other tools (get_instruments, etc.)
-# Remember to test different scenarios:
-# - Success cases
-# - Failure cases (e.g., missing parameters, invalid venue, node not initialized)
-# - Edge cases
+# --- Tests for get_instruments ---
+
+@pytest.mark.asyncio
+async def test_get_instruments_not_initialized(mcp_server):
+    """Test get_instruments when the trading node is not initialized."""
+    # Call the tool function directly for testing its logic
+    result = get_instruments(mcp_server)
+    assert result["status"] == "error"
+    assert "not initialized" in result["message"]
+
+@pytest.mark.asyncio
+async def test_get_instruments_success(mcp_server, valid_trading_config):
+    """Test successful retrieval of instruments after initialization."""
+    # Initialize the server - this creates the self.trading_node instance
+    init_result = initialize_trading_node(mcp_server, valid_trading_config)
+    assert init_result["status"] == "success", "Initialization failed, cannot proceed with get_instruments test."
+    assert mcp_server.initialized is True, "Server should be initialized after successful init call."
+    assert hasattr(mcp_server, 'trading_node') and mcp_server.trading_node is not None, "Trading node should exist after init."
+
+    # Define mock instruments
+    mock_instrument_1 = MagicMock()
+    mock_instrument_1.id = InstrumentId.from_str("SIM-BTC/USDT.NAUTILUS")
+    mock_instrument_2 = MagicMock()
+    mock_instrument_2.id = InstrumentId.from_str("SIM-ETH/USDT.NAUTILUS")
+
+    # Configure the mock trading node to return these instruments
+    # We need to mock the instruments() method on the *instance* of the trading_node
+    mcp_server.trading_node.instruments = MagicMock(return_value=[mock_instrument_1, mock_instrument_2])
+
+    # Use the get_instruments tool function
+    result = get_instruments(mcp_server)
+
+    assert result["status"] == "success"
+    assert isinstance(result["instruments"], list)
+    assert len(result["instruments"]) == 2
+    assert "SIM-BTC/USDT.NAUTILUS" in result["instruments"]
+    assert "SIM-ETH/USDT.NAUTILUS" in result["instruments"]
+    # Verify the mock was called
+    mcp_server.trading_node.instruments.assert_called_once()
+
+# --- Placeholder for Future Tool Tests ---
