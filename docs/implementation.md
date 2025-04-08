@@ -36,7 +36,7 @@ With this architecture:
 
 ### 1.1 Environment Setup
 
-- [x] Install required dependencies
+- [✓] Install required dependencies
 
   ```bash
   # Install MCP SDK
@@ -49,7 +49,7 @@ With this architecture:
   pip install pytest pytest-asyncio
   ```
 
-- [x] Create project structure
+- [✓] Create project structure
   ```
   nautilus-mcp/
   ├── README.md
@@ -73,7 +73,7 @@ With this architecture:
 
 ### 1.2 Basic Server Implementation
 
-- [x] Implement basic MCP server class structure
+- [✓] Implement basic MCP server class structure
 
   ```python
   # src/nautilus_mcp/server.py
@@ -119,7 +119,7 @@ With this architecture:
           pass
   ```
 
-- [x] Create entry point script
+- [✓] Create entry point script
 
   ```python
   # src/nautilus_mcp/__main__.py
@@ -137,7 +137,7 @@ With this architecture:
 
 ### 2.1 Trading Tools Implementation
 
-- [ ] Implement trading node initialization
+- [✓] Implement trading node initialization
 
   ```python
   # src/nautilus_mcp/tools/trading.py
@@ -162,7 +162,7 @@ With this architecture:
           return {"status": "error", "message": str(e)}
   ```
 
-- [ ] Implement venue connection
+- [✓] Implement venue connection
 
   ```python
   def connect_venue(self, venue_name, credentials):

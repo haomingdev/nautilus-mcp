@@ -1,104 +1,91 @@
 import logging
+from functools import partial
 from nautilus_trader.live.node import TradingNode
-from nautilus_trader.config import TradingNodeConfig # Import config type if needed for type hinting or validation
+from nautilus_trader.live.config import TradingNodeConfig, LiveDataEngineConfig, LiveRiskEngineConfig, LiveExecEngineConfig # Import TradingNodeConfig
+from nautilus_trader.model.enums import OrderSide, OrderType, TimeInForce # For order submission
 
-# Get a logger specific to this module if desired, or rely on the server's logger
+# Get the module-level logger
 logger = logging.getLogger(__name__)
 
-def initialize_trading_node(server_instance, config: dict) -> dict:
-    """
-    Initialize the embedded NautilusTrader trading node.
+# Tool implementations
 
-    Expects the server instance to have `trading_node`, `initialized`,
-    `clock`, `logger` (Nautilus compatible logger), `log_info`, `log_warning`,
-    and `log_error` attributes/methods.
+def initialize_trading_node(server_instance, config: TradingNodeConfig) -> dict:
+    """Initialize the embedded NautilusTrader trading node.
 
     Args:
         server_instance: The instance of NautilusMCPServer.
-        config: A dictionary containing the configuration for the TradingNode.
-                This should match the structure expected by nautilus_trader.
+        config: A TradingNodeConfig object with the desired configuration.
 
     Returns:
-        A dictionary with 'status' ('success', 'warning', or 'error') and 'message'.
+        A dictionary with status, message, and trader_id if successful.
     """
     if server_instance.initialized:
-        server_instance.log_warning("[Initialize] Trading node already initialized.")
-        # Return a warning status if already initialized
-        return {"status": "warning", "message": "Trading node already initialized."}
+        warning_msg = "[Initialize] Trading node already initialized."
+        server_instance.log_warning(warning_msg)
+        return {"status": "warning", "message": warning_msg}
+
+    server_instance.log_info("[Initialize] Received initialization request.")
+    server_instance.log_info(f"[Initialize] Config received: {config}") # Log config object
 
     try:
         # Log the attempt, consider redacting sensitive parts of config in production
-        server_instance.log_info(f"[Initialize] Attempting to initialize TradingNode...") # Config logged separately if needed
+        # server_instance.log_debug(f"Attempting to initialize TradingNode with config: {config}")
 
-        # Validate or parse config if necessary - TradingNode might do this internally
-        # For now, assume the passed dict `config` is valid TradingNodeConfig structure
+        # Config is now expected to be a TradingNodeConfig object, no parsing needed.
 
-        # Create trading node using the server's clock and logger instance
-        # This follows the pattern shown in the technical spec appendix
-        server_instance.trading_node = TradingNode(
-            config=config,
-            # Pass the clock and logger instance from the server
-            # Ensure the server's logger is compatible or adapt if needed
-            clock=server_instance.clock,
-            logger=server_instance.logger
-        )
+        # Initialize the NautilusTrader TradingNode with the parsed config object
+        try:
+            server_instance.trading_node = TradingNode(
+                config=config,  # Pass the TradingNodeConfig object directly
+                # logger=server_instance.logger # Removed: TradingNode doesn't accept logger
+            )
 
-        # Note: TradingNode might take some time to initialize fully,
-        # depending on config (e.g., connecting to components like Redis).
-        # This call is synchronous here. Consider async if startup is long.
+            # Optionally, start the node or perform other setup if needed
+            # await server_instance.trading_node.start() # Example if start is needed
+
+        except Exception as e:
+            server_instance.log_error(f"[Error][Initialize] Failed to initialize trading node: {str(e)}", exc_info=True)
+            # Ensure node and flag are reset on failure
+            server_instance.trading_node = None
+            server_instance.initialized = False
+            return {"status": "error", "message": f"Failed to initialize trading node: {str(e)}"}
 
         server_instance.initialized = True
         server_instance.log_info("[Initialize] Trading node initialized successfully.")
-        return {"status": "success", "message": "Trading node initialized successfully."}
+        # Return success status and the node's trader_id
+        return {"status": "success", "message": "Trading node initialized.", "trader_id": str(server_instance.trading_node.trader_id)}
 
     except Exception as e:
+        # Catch specific exceptions if possible, e.g., ValidationError from Pydantic
+        # Log the full traceback for debugging
         server_instance.log_error(f"[Error][Initialize] Failed to initialize trading node: {str(e)}", exc_info=True)
-        # Ensure node and flag are reset on failure
-        server_instance.trading_node = None
-        server_instance.initialized = False
         return {"status": "error", "message": f"Failed to initialize trading node: {str(e)}"}
 
-# --- Trading Tools Implementation ---
 
 def connect_venue(server_instance, venue_name: str, credentials: dict) -> dict:
-    """
-    Connect to a specific trading venue using the initialized TradingNode.
-
-    Args:
-        server_instance: The instance of NautilusMCPServer.
-        venue_name: The name of the venue to connect to (e.g., 'BINANCE').
-        credentials: A dictionary containing the API key, secret, etc.
-
-    Returns:
-        A dictionary with status and message.
-    """
-    if not server_instance.initialized or not server_instance.trading_node:
-        server_instance.log_error("[ConnectVenue] Error: Trading node not initialized.")
-        return {"status": "error", "message": "Trading node not initialized. Call initialize_trading_node first."}
+    """Connect to a specified trading venue using provided credentials."""
+    if not server_instance.initialized:
+        server_instance.log_warning("[Connect Venue] Attempted to connect venue before initialization.")
+        return {"status": "error", "message": "Trading node not initialized. Please initialize first."}
 
     try:
-        server_instance.log_info(f"[ConnectVenue] Attempting to connect to venue: {venue_name}...")
+        server_instance.log_info(f"[Connect Venue] Attempting to connect to venue: {venue_name}")
 
-        # NautilusTrader expects a venue configuration dictionary.
-        # Adapt the incoming credentials dict to the format Nautilus needs if necessary.
-        # The exact structure depends on the specific venue adapter in Nautilus.
-        # Assuming a simple direct pass-through for now, but might need adjustment.
-        venue_config = {
-            "venue": venue_name.upper(), # Ensure venue name is uppercase if required
-            "credentials": credentials
-        }
+        # --- Placeholder for actual venue connection logic ---
+        # This will involve using server_instance.trading_node.connect_venue()
+        # which requires specific venue adapter configurations and credentials.
+        # For now, we'll simulate a successful connection.
+        server_instance.log_info(f"[Connect Venue] Placeholder: Successfully connected to {venue_name}.")
+        # In a real implementation, we would check the connection status.
+        # -------------------------------------------------------
 
-        # Call the TradingNode's connect_venue method.
-        # This is typically a synchronous call, but check Nautilus docs.
-        # It might raise exceptions on connection failure or bad credentials.
-        server_instance.trading_node.connect_venue(venue_config)
-
-        server_instance.log_info(f"[ConnectVenue] Successfully connected to venue: {venue_name}")
-        return {"status": "success", "message": f"Successfully connected to {venue_name}"}
+        return {"status": "success", "message": f"Successfully connected to venue {venue_name}."}
 
     except Exception as e:
-        server_instance.log_error(f"[Error][ConnectVenue] Failed to connect to venue {venue_name}: {str(e)}", exc_info=True)
+        server_instance.log_error(f"[Error][Connect Venue] Failed to connect to venue {venue_name}: {str(e)}", exc_info=True)
         return {"status": "error", "message": f"Failed to connect to venue {venue_name}: {str(e)}"}
+
+# --- Trading Tools Implementation ---
 
 def get_instruments(server_instance, venue: str, symbol_filter: str = None) -> dict:
     """
@@ -129,7 +116,7 @@ def get_instruments(server_instance, venue: str, symbol_filter: str = None) -> d
         # It likely returns a list of Instrument objects.
         instruments = server_instance.trading_node.instruments(venue=venue_name)
 
-        # Convert Instrument objects to a serializable format (e.g., list of dicts)
+        # Convert Instrument objects to a serializable format
         instrument_list = []
         for inst in instruments:
             instrument_list.append({

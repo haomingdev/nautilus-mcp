@@ -1,8 +1,10 @@
 import logging
 from functools import partial
 from mcp.server import Server
-from nautilus_trader.common.clock import LiveClock
-from nautilus_trader.common.logging import Logger
+from nautilus_trader.common.component import LiveClock, Logger
+
+# Import trading tools
+from .tools.trading import initialize_trading_node, connect_venue
 
 # Basic logging configuration
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -11,18 +13,18 @@ logger = logging.getLogger("nautilus-mcp")
 class NautilusMCPServer(Server):
     def __init__(self):
         # Remove transport handling from init; it's managed by stdio_server context
-        super().__init__()
+        # Provide the required server name to the base class constructor
+        # Capabilities are likely handled by the transport/serve lifecycle, not set directly here.
+        # capabilities = {
+        #     "tools": True,
+        #     "resources": True, # Assuming we will add resources later
+        #     "prompts": True,
+        #     "logging": True
+        # }
+        super().__init__(name="nautilus-trader") # Pass server name only
 
-        # Server identification
-        self.server_info("nautilus-trader", "0.1.0") # Initial version
-
-        # Configure capabilities (can be adjusted later)
-        self.set_capabilities({
-            "tools": True,
-            "resources": True, # Assuming we will add resources later
-            "prompts": True,
-            "logging": True
-        })
+        # Server identification - this might be redundant now if base class handles name
+        # self.server_info("nautilus-trader", "0.1.0") # Initial version
 
         # Initialize clock and logger for potential NautilusTrader use
         # Note: NautilusTrader instance itself is not created here yet
@@ -40,9 +42,9 @@ class NautilusMCPServer(Server):
         self._register_tools()
         self._register_resources()
 
-    def log_info(self, message, *args, **kwargs):
+    def log_info(self, message: str):
         """Helper to use the server's logger for INFO level."""
-        self.logger.info(message, *args, **kwargs)
+        self.logger.info(message)
 
     def log_error(self, message, *args, **kwargs):
         """Helper to use the server's logger for ERROR level."""
@@ -56,59 +58,17 @@ class NautilusMCPServer(Server):
         """Register all trading and backtesting tools."""
         self.log_info("[Setup] Registering tools...")
 
-        # Import tool functions
-        from .tools.trading import (
-            initialize_trading_node,
-            connect_venue,
-            get_instruments,
-            submit_market_order,
-            submit_limit_order,
-            cancel_order,
-            get_account_info,
-            get_positions,
-            get_order_status
-        )
-        # Other imports will go here later (e.g., from .tools.backtest import ...)
+        # Store tool functions using partial to bind the server instance.
+        # NOTE: This currently bypasses the standard MCP metadata registration.
+        # We need to find the correct mcp.Server method to register tools with metadata.
+        self.tools = {}
+        self.tools["initialize_trading_node"] = partial(initialize_trading_node, self)
+        self.tools["connect_venue"] = partial(connect_venue, self)
 
-        # Register trading tools
-        self.register_tool(
-            "initialize_trading_node",
-            partial(initialize_trading_node, self)
-        )
-        self.register_tool(
-            "connect_venue",
-            partial(connect_venue, self)
-        )
-        self.register_tool(
-            "get_instruments",
-            partial(get_instruments, self)
-        )
-        self.register_tool(
-            "submit_market_order",
-            partial(submit_market_order, self)
-        )
-        self.register_tool(
-            "submit_limit_order",
-            partial(submit_limit_order, self)
-        )
-        self.register_tool(
-            "cancel_order",
-            partial(cancel_order, self)
-        )
-        self.register_tool(
-            "get_account_info",
-            partial(get_account_info, self)
-        )
-        self.register_tool(
-            "get_positions",
-            partial(get_positions, self)
-        )
-        self.register_tool(
-            "get_order_status",
-            partial(get_order_status, self)
-        )
+        self.log_info(f"[Setup] Registered {len(self.tools)} tools (metadata pending correct registration method).")
 
-        self.log_info("[Setup] Trading tools registered.")
+        # Placeholder for backtesting tools
+        # self._register_backtest_tools()
 
     def _register_resources(self):
         """Register all data resources."""
